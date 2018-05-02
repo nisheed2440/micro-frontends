@@ -24,6 +24,7 @@ export default [{
             main: true
         }),
         babel({
+            runtimeHelpers: true,
             include: ['*.js', '**/*.js'],
             exclude: 'node_modules/**'
         }),
@@ -48,6 +49,7 @@ export default [{
     plugins: [
         resolve(),
         babel({
+            runtimeHelpers: true,
             include: ['*.js', '**/*.js'],
             exclude: 'node_modules/**'
         }),

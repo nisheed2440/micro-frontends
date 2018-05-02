@@ -29,37 +29,52 @@ function createScript(document, src, id, defer){
     return scriptTag;
 }
 
-module.exports = function (req, body) {
+module.exports = async function (req, body) {
     const dom = new JSDOM(body, {
         runScripts: 'dangerously'
     });
     
+    let promiseArray = [];
     let scriptsObj = {};
     let scriptsDataObj = {};
 
     dom.window.document.body.querySelectorAll('[data-component]').forEach((el) => {
         const componentType = el.getAttribute('data-component');
         const componentInstanceId = el.getAttribute('data-instance-id');
+        const componentReact = require(`../public/javascripts/${componentType}Component`);
+        
         if(!scriptsObj[componentType]){
             scriptsObj[componentType] = `${req.secure || 'http'}://${req.get('host')}/javascripts/${componentType}Component.js`;
         }
         scriptsDataObj[componentInstanceId] = dom.window[componentInstanceId];
-        el.innerHTML = ReactDOMServer.renderToString(React.createElement(require(`../public/javascripts/${componentType}Component`),{data:  scriptsDataObj[componentInstanceId]}, null));
+        if(componentReact.getInitialProps){
+            promiseArray.push(componentReact.getInitialProps().then((state) => {
+                scriptsDataObj[componentInstanceId] = state;
+                el.innerHTML = ReactDOMServer.renderToString(React.createElement(componentReact,{data:  scriptsDataObj[componentInstanceId]}, null));
+            }));
+        } else {
+            el.innerHTML = ReactDOMServer.renderToString(React.createElement(componentReact,{data:  scriptsDataObj[componentInstanceId]}, null));
+        }
     });
     
     const common = commonScripts(req);
     
-    _.forEach(common, function(value) {
-        dom.window.document.body.appendChild(createScript(dom.window.document, value, null));
-    });
 
+    await Promise.all(promiseArray).then(() => {
+        
+        _.forEach(common, function(value) {
+            dom.window.document.body.appendChild(createScript(dom.window.document, value, null));
+        });
     
-    dom.window.document.body.appendChild(createScript(dom.window.document, scriptsDataObj, 'ReactData', false));
-    
-    _.forEach(scriptsObj, function(value, key) {
-        dom.window.document.body.appendChild(createScript(dom.window.document, value, key));
+        
+        dom.window.document.body.appendChild(createScript(dom.window.document, scriptsDataObj, 'ReactData', false));
+        
+        _.forEach(scriptsObj, function(value, key) {
+            dom.window.document.body.appendChild(createScript(dom.window.document, value, key));
+        });
+        
     });
-
+    
     return minify(dom.serialize(), {
         collapseWhitespace: true,
         minifyJS: true

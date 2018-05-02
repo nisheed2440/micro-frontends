@@ -7,6 +7,14 @@ class Header extends React.Component {
         super(props);
         this.state = props.data || {};
       }
+      static async getInitialProps() {
+        const state = await new Promise((resolve) => {
+            setTimeout(() => {
+                resolve('Nisheed');
+            }, 2000);
+        });
+        return {name: state};
+      }
       componentDidMount() {
           setInterval(() => {
               this.setState(Object.assign({}, this.state, {
@@ -16,6 +24,9 @@ class Header extends React.Component {
                   window.PubSub.publish('headerUpdated', this.state);
               }
           }, 300);
+          this.constructor.getInitialProps().then((data) => {
+              console.log(data);
+          });
       }
     render() {
         return <div>Header, {this.state.name}</div>;
